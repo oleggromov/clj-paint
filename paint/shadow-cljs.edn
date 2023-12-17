@@ -1,0 +1,14 @@
+;; shadow-cljs configuration
+{:source-paths
+ ["src/main"]
+
+ :dependencies []
+
+ :dev-http {7999 "public"}
+
+ :builds
+ {:paint
+  {:target :browser
+   :modules {
+            :main {:init-fn main/init}
+             }}}}

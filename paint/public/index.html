@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PAINT</title>
+    <style>
+    html,
+    body {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      color: white;
+      background: black;
+      font: 14px monospace;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    #canvas {
+      border: 1px solid #333;
+    }
+
+    #counters {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      text-align: right;
+    }
+
+    #info {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .color {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 20px;
+      height: 20px;
+      padding: 10px;
+      color: black;
+      border-radius: 5px;
+    }
+
+    .color:after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      border-radius: 5px;
+      border: 2px solid rgba(255,255,255,.2);
+    }
+
+    .color:last-child {
+      color: #aaa;
+    }
+
+    .color.active {
+      width: 30px;
+      height: 30px;
+    }
+    </style>
+  </head>
+  <body>
+    <div id="info"></div>
+    <canvas id="canvas"></canvas>
+    <div id="counters">
+      <div id="fps"></div>
+      <div id="pcls"></div>
+    </div>
+    <script src="/js/main.js"></script>
+  </body>
+</html>
