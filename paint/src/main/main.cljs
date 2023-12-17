@@ -5,15 +5,23 @@
 (def block-size 20)
 (def color-bg "black")
 (def color-inactive "#3a3a3a")
-(def colors ["#ed1411" ; red
+(def colors [color-bg
+             "#ed1411" ; red
              "#f7a81e" ; orange
              "#fff705" ; yellow
              "#32bf58" ; green
              "#33d3ff" ; light blue
              "#0059ff" ; blue
              "#8b17ff" ; violet
-             color-bg])
-(def color-empty-idx 7)
+             "#523400" ; brown
+             "#8a8a8a" ; grey
+             ])
+(def color-empty-idx 0)
+
+(defn get-random-color-idx []
+  (+ 1 (rand-int (- (count colors) 3))))
+
+(get-random-color-idx)
 
 ; dom elements
 (def el-info (render/dom-by-id "info"))
@@ -32,7 +40,9 @@
               37 :left
               38 :up
               39 :right
-              40 :down}]
+              40 :down
+              ;; R
+              82 :reset}]
     (get keys code)))
 
 (defn setup-keyboard [listener]
@@ -53,12 +63,17 @@
     {:blocks [width height]
      :px [width-px height-px]}))
 
+;; TODO index translation
 (defn setup-info-colors! [active-idx]
-  (doseq [[idx color] (map-indexed vector colors)]
+  (doseq [[idx color] (map-indexed vector (drop 1 colors))]
     (render/dom-create-el :div el-info {:classes ["color"
-                                                  (when (= active-idx idx) "active")]
+                                                  (when (= active-idx (inc idx)) "active")]
                                         :bg color
-                                        :text (inc idx)})))
+                                        :text (inc idx)}))
+  (render/dom-create-el :div el-info {:classes ["color"
+                                                (when (= active-idx 0) "active")]
+                                      :bg (first colors)
+                                      :text 0}))
 
 (defn- i->xy [i width] [(mod i width) (quot i width)])
 (defn- xy->i [x y width] (+ (* width y) x))
@@ -66,9 +81,9 @@
 (defn render-cursor! [{x :x, y :y, color-idx :color-idx, active :active} pic line-width]
   (let [pic-under (not= (pic (xy->i x y line-width)) color-empty-idx)
         color (if
-           (= (colors color-idx) color-bg)
-            color-inactive
-            (if pic-under color-bg (colors color-idx)))
+               (= (colors color-idx) color-bg)
+                color-inactive
+                (if pic-under color-bg (colors color-idx)))
         px (* x block-size)
         py (* y block-size)]
     (render/stroke-rectangle! canvas-ctx color px py block-size block-size active)))
@@ -81,9 +96,10 @@
           color (if (= color-idx color-empty-idx) color-bg (colors color-idx))]
       (render/draw-rectangle! canvas-ctx color x y block-size block-size))))
 
-(defn update-active-color! [color-idx]
+;; TODO index translation
+(defn update-active-color! [active-idx]
   (doseq [[idx, color-el] (keep-indexed vector (render/dom-get-children el-info))]
-    (if (= idx color-idx)
+    (if (or (= (inc idx) active-idx) (and (= active-idx 0) (= idx (dec (count colors)))))
       (render/dom-add-class color-el "active")
       (render/dom-remove-class color-el "active"))))
 
@@ -110,6 +126,9 @@
       (assoc pic (xy->i x y width) color-idx)
       pic)))
 
+(defn- empty-pic [canvas-blocks]
+  (into [] (replicate (apply * canvas-blocks) color-empty-idx)))
+
 (defn init []
   (let [{canvas-px :px, canvas-blocks :blocks} (setup-canvas)
         canvas-width (canvas-blocks 0)
@@ -118,8 +137,8 @@
                      :cursor {:x (quot canvas-width 2)
                               :y (quot canvas-height 2)
                               :active false
-                              :color-idx 0}
-                     :pic (into [] (replicate (apply * canvas-blocks) color-empty-idx))})
+                              :color-idx (get-random-color-idx)}
+                     :pic (empty-pic canvas-blocks)})
 
         sget-in (fn [path] (get-in @state path))
         s! (fn [path val] (swap! state assoc-in path val))
@@ -132,13 +151,16 @@
         keypress
         (fn [key code]
           (let [number (key->number code)]
-            (when key
+            (when (= key :reset)
+              (s! [:cursor :active] false)
+              (s! [:pic] (empty-pic canvas-blocks)))
+            (when (not= key :reset)
               (s! [:cursor] (update-cursor (:cursor @state) canvas-blocks key))
               (s! [:pic] (update-pic (:cursor @state) (:pic @state) canvas-width)))
-            (when (contains? colors (dec number))
-              (s! [:cursor :color-idx] (dec number))
+            (when (contains? colors number)
+              (s! [:cursor :color-idx] number)
               (s! [:pic] (update-pic (:cursor @state) (:pic @state) canvas-width))
-              (update-active-color! (dec number)))))
+              (update-active-color! number))))
 
         frame
         (fn [dt-ms]

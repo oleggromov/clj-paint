@@ -58,7 +58,7 @@
         aw (- w 3 (if active 8 0))
         ah (- h 3 (if active 8 0))]
     (set! (.-strokeStyle ctx) style)
-    (set! (.-lineWidth ctx) (if active 5 1))
+    (set! (.-lineWidth ctx) (if active 5 2))
     (.strokeRect ctx ax ay aw ah)
     (set! (.-lineWidth ctx) 1)))
 
