@@ -95,7 +95,7 @@
 
 (def gnome-sprite-src
   (let [img (js/Image.)]
-    (aset img "src" "gnome.png")
+    (aset img "src" "gnome-square.png")
     img))
 
 (def gnome-sprite
@@ -105,5 +105,5 @@
                 :right 2
                 :up 3}
    :animation-len 3
-   :frame-size [48 64]
+   :frame-size [48 48]
    :fps 6})
