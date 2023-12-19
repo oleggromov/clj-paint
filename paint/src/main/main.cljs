@@ -1,5 +1,6 @@
 (ns main
-  (:require [render]))
+  (:require [render]
+            [pvector]))
 
 ; constants
 (def block-size 20)
@@ -14,8 +15,8 @@
              "#0059ff" ; blue
              "#8b17ff" ; violet
              "#523400" ; brown
-             "#8a8a8a" ; grey
-             ])
+             "#8a8a8a"]) ; grey
+
 (def color-empty-idx 0)
 
 (defn get-random-color-idx []
@@ -96,15 +97,79 @@
           color (if (= color-idx color-empty-idx) color-bg (colors color-idx))]
       (render/draw-rectangle! canvas-ctx color x y block-size block-size))))
 
+
+(defn within-canvas? [{x :x y :y} [canvas-width canvas-height]]
+  (and (<= 0 x (dec canvas-width)) (<= 0 y (dec canvas-height))))
+
+
+(defn- frame-pendulum [n dir len]
+  (let [next-n (+ n dir)
+        last (dec len)]
+    (cond
+      (< next-n 0) [(min 1 last) 1]
+      (>= next-n len) [(max 0 (dec n)) -1]
+      :else [next-n dir])))
+
+
+(defn boundaries [pos [w h]]
+  [pos
+   (pvector/add pos [w 0])
+   (pvector/add pos [w h])
+   (pvector/add pos [0 h])])
+
+(defn- gnome-next-step [pos bps dir size-px canvas-px]
+  (let [[x y] pos
+        step (* bps block-size)
+        diff {:down  [x (+ y step)]
+              :right [(+ x step) y]
+              :up    [x (- y step)]
+              :left  [(- x step) y]}
+        next-pos (diff dir)
+        next-boundaries (boundaries next-pos size-px)]
+
+    (if (every? (fn [[x y]] (within-canvas? {:x x :y y} canvas-px)) next-boundaries)
+      [next-pos dir]
+      (case dir
+        :down [(diff :right) :right]
+        :right [(diff :up) :up]
+        :up [(diff :left) :left]
+        :left [(diff :down) :down]))))
+
+(defn update-gnome! [gnome dt-ms canvas-px]
+  (let [{{fps :fps
+          len :animation-len
+          frame-size :frame-size} :sprite
+         scale :scale
+         frame :frame
+         frame-dir :frame-dir
+         frame-wait :frame-wait
+         pos :pos
+         dir :anim
+         bps :bps} gnome
+        ms-frame (/ 1000 fps)
+        new-wait (+ frame-wait dt-ms)
+        wait-diff (- ms-frame new-wait)
+        should-render (>= 0 wait-diff)]
+    (if should-render
+      (let [[next-frame next-frame-dir] (frame-pendulum frame frame-dir len)
+            [next-pos next-dir] (gnome-next-step pos bps dir (map #(* scale %) frame-size) canvas-px)]
+        (-> gnome
+            (assoc-in [:frame] next-frame)
+            (assoc-in [:frame-dir] next-frame-dir)
+            (assoc-in [:frame-wait] (abs wait-diff))
+            (assoc-in [:pos] next-pos)
+            (assoc-in [:anim] next-dir)))
+      (assoc-in gnome [:frame-wait] new-wait))))
+
+(defn render-gnome! [{sprite :sprite, pos :pos, frame :frame, a :anim, scale :scale}]
+  (render/draw-sprite! canvas-ctx sprite a frame pos scale))
+
 ;; TODO index translation
 (defn update-active-color! [active-idx]
   (doseq [[idx, color-el] (keep-indexed vector (render/dom-get-children el-info))]
     (if (or (= (inc idx) active-idx) (and (= active-idx 0) (= idx (dec (count colors)))))
       (render/dom-add-class color-el "active")
       (render/dom-remove-class color-el "active"))))
-
-(defn within-canvas? [{x :x y :y} [canvas-width canvas-height]]
-  (and (<= 0 x (dec canvas-width)) (<= 0 y (dec canvas-height))))
 
 ; state updates
 (defn move-cursor [cursor key]
@@ -138,15 +203,30 @@
                               :y (quot canvas-height 2)
                               :active false
                               :color-idx (get-random-color-idx)}
-                     :pic (empty-pic canvas-blocks)})
+                    ;;  :prev (empty-pic canvas-blocks)
+                     :pic (empty-pic canvas-blocks)
+                     :gnome {:sprite render/gnome-sprite
+                             :pos [0 0]
+                             :anim :down
+                             :frame 0
+                             :frame-dir 1
+                             :scale 2
+                             :frame-wait 0
+                             :bps 1}})
 
         sget-in (fn [path] (get-in @state path))
         s! (fn [path val] (swap! state assoc-in path val))
 
-        draw (fn []
+        draw (fn [dt-ms]
                (apply empty-canvas! canvas-px)
                (render-pic! (:pic @state) canvas-width)
-               (render-cursor! (:cursor @state) (:pic @state) canvas-width))
+               (render-cursor! (:cursor @state) (:pic @state) canvas-width)
+               ;; gnome
+               (s! [:gnome] (update-gnome! (:gnome @state) dt-ms canvas-px))
+               (render-gnome! (:gnome @state))
+              ;;  (println (:frame-wait (:gnome @state)))
+               )
+
 
         keypress
         (fn [key code]
@@ -162,13 +242,15 @@
               (s! [:pic] (update-pic (:cursor @state) (:pic @state) canvas-width))
               (update-active-color! number))))
 
-        frame
-        (fn [dt-ms]
-          (let [now (now-ms)]
-            ;; frame rate & counters
-            (render/render-fps! "fps" dt-ms)
-            (s! [:render :last-frame] now)
-            (draw)))]
+        frame (fn [dt-ms]
+                ;; (println (:gnome @state))
+                (render/render-fps! "fps" dt-ms)
+                (s! [:render :last-frame] (now-ms))
+                (draw dt-ms))]
+
+
+
     (setup-keyboard keypress)
     (setup-info-colors! (sget-in [:cursor :color-idx]))
+    (render/disable-antialising canvas-ctx)
     (render/raf! frame)))

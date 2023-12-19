@@ -70,3 +70,40 @@
                  (reset! last-frame now)
                  (.requestAnimationFrame js/window wrap)))]
     (wrap)))
+
+;; sprites
+(defn disable-antialising [ctx]
+  (set! (.-imageSmoothingEnabled ctx) false))
+
+(defn draw-image! [ctx img [dx dy] [dw dh] [sx sy] [sw sh]]
+
+  (.drawImage ctx img sx sy sw sh dx dy dw dh))
+
+(defn draw-sprite!
+  [ctx sprite animation frame-n [dx dy] scale]
+  (let [{src :src
+         animations :animations
+         al :animation-len
+         [fx fy] :frame-size} sprite
+        n (mod frame-n al)
+        dw (* scale fx)
+        dh (* scale fy)
+        sx (* n fx)
+        sy (* (animations animation) fy)]
+    (draw-image!
+     ctx src [dx dy] [dw dh] [sx sy] [fx fy])))
+
+(def gnome-sprite-src
+  (let [img (js/Image.)]
+    (aset img "src" "gnome.png")
+    img))
+
+(def gnome-sprite
+  {:src gnome-sprite-src
+   :animations {:down 0
+                :left 1
+                :right 2
+                :up 3}
+   :animation-len 3
+   :frame-size [48 64]
+   :fps 6})
