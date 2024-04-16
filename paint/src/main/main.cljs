@@ -117,9 +117,17 @@
    (pvector/add pos [w h])
    (pvector/add pos [0 h])])
 
+
+
 (defn- gnome-next-step [pos bps dir size-px canvas-px]
   (let [[x y] pos
         step (* bps block-size)
+        ;; rand-turn (fn [dir] (if (< (rand) 0.15)
+        ;;                       (cond (< 0.25 (rand)) :up
+        ;;                             (< 0.5 (rand)) :right
+        ;;                             (< 0.75 (rand)) :left
+        ;;                             (< 1 (rand)) :down)
+        ;;                       dir))
         diff {:down  [x (+ y step)]
               :right [(+ x step) y]
               :up    [x (- y step)]
